@@ -39,7 +39,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-
+    'bot',
+    'management',
+    'workout',
 ]
 
 MIDDLEWARE = [
@@ -131,7 +133,7 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-LOG_LEVEL=os.getenv('LOG_LEVEL')
+LOG_LEVEL=True
 
 LOGGING = {
     "version": 1,
