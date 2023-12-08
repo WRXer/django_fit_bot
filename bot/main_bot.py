@@ -2,39 +2,13 @@ import telebot
 from telebot import types
 from telebot.async_telebot import AsyncTeleBot
 from django.conf import settings
-from channels.db import database_sync_to_async
 
-from workout.models import Workout, TelegramUser
+from bot.database_sync import get_or_create_user, create_workout, get_user_workouts
 
 bot = AsyncTeleBot(settings.TOKEN_BOT, parse_mode='HTML')
 
 telebot.logger.setLevel(settings.LOG_LEVEL)
 
-@database_sync_to_async
-def get_or_create_user(user_id):
-    return TelegramUser.objects.get_or_create(telegram_id=user_id)[0]
-
-
-@database_sync_to_async
-def get_user_workouts(user_id):
-    """
-    Получение тренировок пользователя
-    :param user_id:
-    :return:
-    """
-    return list(Workout.objects.filter(user__id=user_id))
-
-
-@database_sync_to_async
-def create_workout(user_id, workout_data):
-    """
-    Создание нового объекта Тренировки
-    :param user_id:
-    :param workout_data:
-    :return:
-    """
-    workout = Workout.objects.create(user=user_id, **workout_data)
-    return workout
 
 # Handle '/start' and '/help'
 @bot.message_handler(commands=['help', 'start'])
@@ -76,7 +50,9 @@ async def create_workout_handler(message):
 @bot.message_handler(func=lambda message: message.text == "Мои тренировки")
 async def my_workouts_handler(message):
     user_id = message.from_user.id
-    user_workouts = await get_user_workouts(user_id)
+    telegram_user = await get_or_create_user(user_id)
+
+    user_workouts = await get_user_workouts(telegram_user)
 
     if not user_workouts:
         await bot.send_message(message.chat.id, "У вас пока нет тренировок.")
