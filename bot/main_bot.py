@@ -43,34 +43,46 @@ async def process_workout_name(message):
     :param message:
     :return:
     """
-
     user_id = message.from_user.id
     telegram_user = await get_or_create_user(user_id)
-
     workout_name = message.text
-
-    workout_data = {
-        'name': workout_name,
-    }
-
-    # Создаем тренировку и записываем в базу данных
-    workout = await create_workout(telegram_user, workout_data)
+    workout_data = {'name': workout_name,}
+    workout = await create_workout(telegram_user, workout_data)    # Создаем тренировку и записываем в базу данных
     del user_states[message.chat.id]
-
-    # Отправляем пользователю подтверждение
-    await bot.send_message(message.chat.id, f"Тренировка '{workout.name}' создана успешно!")
+    await bot.send_message(message.chat.id, f"Тренировка '{workout.name}' создана успешно!")    #Отправляем пользователю подтверждение
 
 
-# Обработчик кнопки "Мои тренировки"
 @bot.message_handler(func=lambda message: message.text == "Мои тренировки")
 async def my_workouts_handler(message):
+    """
+    Обработчик кнопки "Мои тренировки"
+    :param message:
+    :return:
+    """
     user_id = message.from_user.id
     telegram_user = await get_or_create_user(user_id)
-
     user_workouts = await get_user_workouts(telegram_user)
-
     if not user_workouts:
         await bot.send_message(message.chat.id, "У вас пока нет тренировок.")
     else:
-        workouts_text = "\n".join([f"{workout.name}" for workout in user_workouts])
-        await bot.send_message(message.chat.id, f"Ваши тренировки:\n{workouts_text}")
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        for workout in user_workouts:
+            markup.add(types.KeyboardButton(text=workout.name))
+        await bot.send_message(message.chat.id, "Выберите тренировку", reply_markup=markup)
+
+
+@bot.message_handler(func=lambda message: user_states.get(message.chat.id) == "waiting_for_workout_choice")
+async def process_workout_choice(message):
+    """
+    Обработка данных выбранной тренировки
+    """
+    user_id = message.from_user.id
+    telegram_user = await get_or_create_user(user_id)
+    state_data = user_states[message.chat.id]
+
+    selected_workout_name = message.text
+    selected_workout = await get_user_workouts(telegram_user, name=selected_workout_name)
+
+    await bot.send_message(message.chat.id, f"Выбрана тренировка: {selected_workout.name}")
+
+    del user_states[message.chat.id]
