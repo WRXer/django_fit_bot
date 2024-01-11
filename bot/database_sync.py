@@ -31,3 +31,13 @@ def create_workout(user_id, workout_data):
     :return:
     """
     return Workout.objects.create(user=user_id, **workout_data)
+
+
+@database_sync_to_async
+def get_user_workout(user_id, name):
+    """
+    Получение тренировки пользователя по названию
+    :param user_id:
+    :return:
+    """
+    return Workout.objects.get(user=user_id, name=name)
