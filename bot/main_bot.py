@@ -74,7 +74,7 @@ async def process_workout_name(message):
     exercise = await create_exercise(telegram_user, exercise_data)    # Создаем упражнение и записываем в базу данных
     del user_states[message.chat.id]
     await bot.send_message(message.chat.id, f"Упражнение '{exercise.name}' создано успешно!")    #Отправляем пользователю подтверждение
-    user_exercises = await get_user_workout_exercises(telegram_user, selected_workout)
+    user_exercises = await get_user_workout_exercises(telegram_user, selected_workout)    #Выводим список упражнений
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     if not user_exercises:
         button_create_exercise = types.KeyboardButton("Создать упражнение")
@@ -86,6 +86,7 @@ async def process_workout_name(message):
         for exercise in user_exercises:
             keyboard.add(types.KeyboardButton(text=exercise.name))
         await bot.send_message(message.chat.id, "Выберите упражнение", reply_markup=keyboard)
+
 
 @bot.message_handler(func=lambda message: message.text == "Мои тренировки")
 async def my_workouts_handler(message):

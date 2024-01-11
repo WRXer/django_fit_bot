@@ -43,7 +43,7 @@ class Exercise(models.Model):
     set = models.PositiveIntegerField(default=1, verbose_name="Подходы")
     weight = models.DecimalField(max_digits=5, decimal_places=2, default=0, verbose_name="Вес")
     date = models.DateTimeField(auto_now_add=True, verbose_name="Дата выполнения")
-    workout = models.ForeignKey(Workout, on_delete=models.CASCADE, null=True, verbose_name='объявление')
+    workout = models.ForeignKey(Workout, on_delete=models.CASCADE, null=True, verbose_name='Упражнение')
 
     def __str__(self):
         return f'{self.name} - {self.set}, {self.weight}'
