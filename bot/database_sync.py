@@ -1,5 +1,5 @@
 from channels.db import database_sync_to_async
-from workout.models import Workout, TelegramUser, Exercise
+from workout.models import Workout, TelegramUser, Exercise, Sets
 
 
 @database_sync_to_async
@@ -61,3 +61,22 @@ def create_exercise(user_id, exersize_data):
     :return:
     """
     return Exercise.objects.create(user=user_id, **exersize_data)
+
+
+@database_sync_to_async
+def get_user_exercise(user_id, name):
+    """
+    Получение тренировки пользователя по названию
+    :param user_id:
+    :return:
+    """
+    return Exercise.objects.get(user=user_id, name=name)
+
+@database_sync_to_async
+def get_user_exercise_sets(user_id, selected_exercise):
+    """
+    Получение упражнений с определенной тренировки
+    :param user_id:
+    :return:
+    """
+    return list(Sets.objects.filter(exercise__user=user_id, exercise=selected_exercise))

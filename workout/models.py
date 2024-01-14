@@ -40,21 +40,31 @@ class Exercise(models.Model):
     """
     user = models.ForeignKey(TelegramUser, on_delete=models.CASCADE, verbose_name="Пользователь")
     name = models.CharField(max_length=255, verbose_name="Название упражнения")
-    set = models.PositiveIntegerField(default=1, verbose_name="Подходы")
-    weight = models.DecimalField(max_digits=5, decimal_places=2, default=0, verbose_name="Вес")
-    date = models.DateTimeField(auto_now_add=True, verbose_name="Дата выполнения")
-    workout = models.ForeignKey(Workout, on_delete=models.CASCADE, null=True, verbose_name='Упражнение')
+    workout = models.ForeignKey(Workout, on_delete=models.CASCADE, null=True, verbose_name='Тренировка')
 
     def __str__(self):
-        return f'{self.name} - {self.set}, {self.weight}'
+        return f'{self.name} - {self.workout}'
 
     class Meta:
         verbose_name = "Упражнение"
         verbose_name_plural = "Упражнения"
 
 
+class Sets(models.Model):
+    """
+    Класс сеты упражнения
+    """
+    set = models.PositiveIntegerField(default=1, verbose_name="Подход")
+    weight = models.DecimalField(max_digits=5, decimal_places=2, default=0, verbose_name="Вес")
+    date = models.DateTimeField(auto_now_add=True, verbose_name="Дата выполнения")
+    exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE, null=True, verbose_name="Упражнение")
 
+    def __str__(self):
+        return f'{self.set} - {self.weight}, {self.exercise}'
 
+    class Meta:
+        verbose_name = "Сет"
+        verbose_name_plural = "Сеты"
 
 
 

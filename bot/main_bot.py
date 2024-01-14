@@ -3,7 +3,7 @@ from telebot import types
 from telebot.async_telebot import AsyncTeleBot
 from django.conf import settings
 from bot.database_sync import get_or_create_user, create_workout, get_user_workouts, get_user_workout, \
-    get_user_workout_exercises, create_exercise
+    get_user_workout_exercises, create_exercise, get_user_exercise, get_user_exercise_sets
 
 bot = AsyncTeleBot(settings.TOKEN_BOT, parse_mode='HTML')
 telebot.logger.setLevel(settings.LOG_LEVEL)
@@ -86,6 +86,7 @@ async def process_workout_name(message):
         for exercise in user_exercises:
             keyboard.add(types.KeyboardButton(text=exercise.name))
         await bot.send_message(message.chat.id, "Выберите упражнение", reply_markup=keyboard)
+        user_states[message.chat.id] = "waiting_for_exercise_choice"
 
 
 @bot.message_handler(func=lambda message: message.text == "Мои тренировки")
@@ -133,7 +134,36 @@ async def process_workout_choice(message):
             for exercise in user_exercises:
                 keyboard.add(types.KeyboardButton(text=exercise.name))
             await bot.send_message(message.chat.id, "Выберите упражнение", reply_markup=keyboard)
+            user_states[message.chat.id] = "waiting_for_exercise_choice"
     else:
         await bot.send_message(message.chat.id, f"Тренировка {selected_workout_name} не найдена.")
 
+
+@bot.message_handler(func=lambda message: user_states.get(message.chat.id) == "waiting_for_exercise_choice")
+async def process_workout_choice(message):
+    """
+    Обработка данных выбранного упражнения
+    """
+    user_id = message.from_user.id
+    telegram_user = await get_or_create_user(user_id)
+    selected_exercise_name = message.text
+    selected_exercise_data = {'name': selected_exercise_name, }
+    selected_exercise = await get_user_exercise(telegram_user, name=selected_exercise_name)
+    del user_states[message.chat.id]
+    if selected_exercise:
+        user_data[message.chat.id] = selected_exercise
+        user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        if not user_sets:
+            button_create_exercise = types.KeyboardButton("Новый подход")
+            keyboard.add(button_create_exercise)
+            await bot.send_message(message.chat.id, "У вас пока нет подходов в упражнении", reply_markup=keyboard)
+        else:
+            button_create_exercise = types.KeyboardButton("Новый подход")
+            keyboard.add(button_create_exercise)
+            for set in user_sets:
+                keyboard.add(types.KeyboardButton(text=f"{set.name}-{set.weight}"))
+            await bot.send_message(message.chat.id, "Выберите подход", reply_markup=keyboard)
+    else:
+        await bot.send_message(message.chat.id, f"Упражнение {selected_exercise_name} не найдено.")
 
