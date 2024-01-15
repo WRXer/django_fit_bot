@@ -18,6 +18,8 @@ async def send_welcome(message):
     :param message:
     :return:
     """
+    user_id = message.from_user.id
+    await get_or_create_user(user_id)
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     button_create_workout = types.KeyboardButton("Создать тренировку")
     button_my_workouts = types.KeyboardButton("Мои тренировки")

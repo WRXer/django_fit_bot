@@ -6,7 +6,7 @@ class TelegramUser(models.Model):
     """
     Класс Пользователь для связи с айди из телеграма
     """
-    telegram_id = models.IntegerField(unique=True, verbose_name="ID пользователя в Telegram")
+    telegram_id = models.BigIntegerField(unique=True, verbose_name="ID пользователя в Telegram")
 
     def __str__(self):
         return str(self.telegram_id)
