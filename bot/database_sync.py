@@ -55,7 +55,7 @@ def get_user_workout_exercises(user_id, workout):
 @database_sync_to_async
 def create_exercise(user_id, exersize_data):
     """
-    Создание нового объекта Тренировки
+    Создание нового объекта Упражнения
     :param user_id:
     :param workout_data:
     :return:
@@ -72,11 +72,24 @@ def get_user_exercise(user_id, name):
     """
     return Exercise.objects.get(user=user_id, name=name)
 
+
+@database_sync_to_async
+def create_set(user_id, set_data):
+    """
+    Создание нового объекта Сета
+    :param user_id:
+    :param workout_data:
+    :return:
+    """
+    return Sets.objects.create(**set_data)
+
+
 @database_sync_to_async
 def get_user_exercise_sets(user_id, selected_exercise):
     """
-    Получение упражнений с определенной тренировки
+    Получение cетов упражнения с определенной тренировки
     :param user_id:
     :return:
     """
     return list(Sets.objects.filter(exercise__user=user_id, exercise=selected_exercise))
+

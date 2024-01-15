@@ -3,7 +3,7 @@ from telebot import types
 from telebot.async_telebot import AsyncTeleBot
 from django.conf import settings
 from bot.database_sync import get_or_create_user, create_workout, get_user_workouts, get_user_workout, \
-    get_user_workout_exercises, create_exercise, get_user_exercise, get_user_exercise_sets
+    get_user_workout_exercises, create_exercise, get_user_exercise, get_user_exercise_sets, create_set
 
 bot = AsyncTeleBot(settings.TOKEN_BOT, parse_mode='HTML')
 telebot.logger.setLevel(settings.LOG_LEVEL)
@@ -37,12 +37,21 @@ async def create_workout_handler(message):
 
 
 @bot.message_handler(func=lambda message: message.text == "Создать упражнение")
-async def create_workout_handler(message):
+async def create_exercise_handler(message):
     """
     Обработчик кнопки "Создать упражнение"
     """
     await bot.send_message(message.chat.id, "Введите название упражнения:")
     user_states[message.chat.id] = "waiting_for_exercise_name"
+
+
+@bot.message_handler(func=lambda message: message.text == "Новый сет")
+async def create_set_handler(message):
+    """
+    Обработчик кнопки "Новый сет"
+    """
+    await bot.send_message(message.chat.id, "Введите данные в формате сет вес повторений(1 2 3)")
+    user_states[message.chat.id] = "waiting_for_new_set"
 
 
 @bot.message_handler(func=lambda message: user_states.get(message.chat.id) == "waiting_for_workout_name")
@@ -89,6 +98,43 @@ async def process_workout_name(message):
             keyboard.add(types.KeyboardButton(text=exercise.name))
         await bot.send_message(message.chat.id, "Выберите упражнение", reply_markup=keyboard)
         user_states[message.chat.id] = "waiting_for_exercise_choice"
+
+
+@bot.message_handler(func=lambda message: user_states.get(message.chat.id) == "waiting_for_new_set")
+async def process_set_name(message):
+    """
+    Получение данных для создания сета
+    :param message:
+    :return:
+    """
+    user_id = message.from_user.id
+    telegram_user = await get_or_create_user(user_id)
+    values = (message.text).split()
+    if len(values) != 3:
+        await bot.send_message(message.chat.id, f"Неверно отправлены данные сета!")   # Возвращаем None в случае неверного формата
+    else:
+        set = int(values[0])    #Первое значение - количество сетов
+        weight = float(values[1].replace(',', '.'))    #Второе значение - вес. Заменяем запятую на точку для правильного преобразования в float
+        reps = int(values[2])    #Третье значение - количество повторений
+
+    selected_exercise = user_data[message.chat.id]
+    set_data = {'set': set, 'weight': weight, 'reps': reps, 'exercise': selected_exercise}
+    set = await create_set(telegram_user, set_data)    # Создаем сет и записываем в базу данных
+    del user_states[message.chat.id]
+    await bot.send_message(message.chat.id, f"Cет '{set.set}' создан успешно!")    #Отправляем пользователю подтверждение
+    user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)    #Выводим список упражнений
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    if not user_sets:
+        button_create_set = types.KeyboardButton("Новый сет")
+        keyboard.add(button_create_set)
+        await bot.send_message(message.chat.id, "У вас пока нет сетов в упражнении", reply_markup=keyboard)
+    else:
+        button_create_set = types.KeyboardButton("Новый сет")
+        keyboard.add(button_create_set)
+        for set in user_sets:
+            keyboard.add(types.KeyboardButton(text=f"Сет {set.set} - {set.weight}кг {set.reps} повторений"))
+        await bot.send_message(message.chat.id, "Выберите сет", reply_markup=keyboard)
+        user_states[message.chat.id] = "waiting_for_set"
 
 
 @bot.message_handler(func=lambda message: message.text == "Мои тренировки")
@@ -142,7 +188,7 @@ async def process_workout_choice(message):
 
 
 @bot.message_handler(func=lambda message: user_states.get(message.chat.id) == "waiting_for_exercise_choice")
-async def process_workout_choice(message):
+async def process_exercise_choice(message):
     """
     Обработка данных выбранного упражнения
     """
@@ -157,15 +203,17 @@ async def process_workout_choice(message):
         user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         if not user_sets:
-            button_create_exercise = types.KeyboardButton("Новый сет")
-            keyboard.add(button_create_exercise)
+            button_create_set = types.KeyboardButton("Новый сет")
+            keyboard.add(button_create_set)
             await bot.send_message(message.chat.id, "У вас пока нет сетов в упражнении", reply_markup=keyboard)
         else:
-            button_create_exercise = types.KeyboardButton("Новый сет")
-            keyboard.add(button_create_exercise)
+            button_create_set = types.KeyboardButton("Новый сет")
+            keyboard.add(button_create_set)
             for set in user_sets:
-                keyboard.add(types.KeyboardButton(text=f"{set.name}-{set.weight}"))
+                keyboard.add(types.KeyboardButton(text=f"Сет {set.set} - {set.weight}кг {set.reps} повторений"))
             await bot.send_message(message.chat.id, "Выберите сет", reply_markup=keyboard)
+            #user_states[message.chat.id] = "waiting_for_exercise_set"
     else:
         await bot.send_message(message.chat.id, f"Упражнение {selected_exercise_name} не найдено.")
+
 
