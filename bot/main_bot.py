@@ -157,15 +157,15 @@ async def process_workout_choice(message):
         user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         if not user_sets:
-            button_create_exercise = types.KeyboardButton("Новый подход")
+            button_create_exercise = types.KeyboardButton("Новый сет")
             keyboard.add(button_create_exercise)
-            await bot.send_message(message.chat.id, "У вас пока нет подходов в упражнении", reply_markup=keyboard)
+            await bot.send_message(message.chat.id, "У вас пока нет сетов в упражнении", reply_markup=keyboard)
         else:
-            button_create_exercise = types.KeyboardButton("Новый подход")
+            button_create_exercise = types.KeyboardButton("Новый сет")
             keyboard.add(button_create_exercise)
             for set in user_sets:
                 keyboard.add(types.KeyboardButton(text=f"{set.name}-{set.weight}"))
-            await bot.send_message(message.chat.id, "Выберите подход", reply_markup=keyboard)
+            await bot.send_message(message.chat.id, "Выберите сет", reply_markup=keyboard)
     else:
         await bot.send_message(message.chat.id, f"Упражнение {selected_exercise_name} не найдено.")
 
