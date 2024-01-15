@@ -1,9 +1,15 @@
+import locale
+import pymorphy2
 import telebot
 from telebot import types
 from telebot.async_telebot import AsyncTeleBot
 from django.conf import settings
 from bot.database_sync import get_or_create_user, create_workout, get_user_workouts, get_user_workout, \
     get_user_workout_exercises, create_exercise, get_user_exercise, get_user_exercise_sets, create_set
+
+
+locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')    #Установка локали на русский язык
+morph = pymorphy2.MorphAnalyzer()
 
 bot = AsyncTeleBot(settings.TOKEN_BOT, parse_mode='HTML')
 telebot.logger.setLevel(settings.LOG_LEVEL)
@@ -123,15 +129,17 @@ async def process_set_name(message):
     del user_states[message.chat.id]
     await bot.send_message(message.chat.id, f"Cет '{set.set}' создан успешно!")    #Отправляем пользователю подтверждение
     user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)    #Выводим список упражнений
-    inline_keyboard = types.InlineKeyboardMarkup(row_width=1)
-    for set in user_sets:
-        inline_keyboard.add(types.InlineKeyboardButton(text=f"Сет {set.set} - {set.weight}кг {set.reps} повторений",
-                                                       callback_data=f"set_{set.set}"))
-    button_create_set = types.KeyboardButton("Новый сет")
+    user_sets = sorted(user_sets, key=lambda x: x.date, reverse=True)[:7]  # Сортировка по дате и выбор последних 7
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    button_create_set = types.KeyboardButton("Новый сет")
     keyboard.add(button_create_set)
-    await bot.send_message(message.chat.id, "\U0001F4AA", reply_markup=keyboard)
-    await bot.send_message(message.chat.id, "Ваши сеты:", reply_markup=inline_keyboard)
+    response = "Ваши сеты \U0001F4AA:\n"
+    for set in user_sets:
+        formatted_date = set.date.strftime("%d")  # Форматирование даты
+        month_name = morph.parse(set.date.strftime("%B"))[0].inflect({'gent'}).word  # Склонение месяца
+        response += f"| Сет {set.set} | {set.weight}кг | {set.reps} повторений | {formatted_date} {month_name}\n"
+    await bot.send_message(message.chat.id, response, reply_markup=keyboard)
+
     user_states[message.chat.id] = "waiting_for_set"
 
 
@@ -199,21 +207,22 @@ async def process_exercise_choice(message):
     if selected_exercise:
         user_data[message.chat.id] = selected_exercise
         user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)
+        user_sets = sorted(user_sets, key=lambda x: x.date, reverse=True)[:7]    #Сортировка по дате и выбор последних 7
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         if not user_sets:
             button_create_set = types.KeyboardButton("Новый сет")
             keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
             keyboard.add(button_create_set)
             await bot.send_message(message.chat.id, "У вас пока нет сетов в упражнении", reply_markup=keyboard)
         else:
-            inline_keyboard = types.InlineKeyboardMarkup(row_width=1)
-            for set in user_sets:
-                inline_keyboard.add(types.InlineKeyboardButton(text=f"Сет {set.set} - {set.weight}кг {set.reps} повторений", callback_data=f"set_{set.set}"))
             button_create_set = types.KeyboardButton("Новый сет")
-            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
             keyboard.add(button_create_set)
-            await bot.send_message(message.chat.id, "\U0001F4AA", reply_markup=keyboard)
-            await bot.send_message(message.chat.id, "Ваши сеты:", reply_markup=inline_keyboard)
+            response = "Ваши сеты \U0001F4AA:\n"
+            for set in user_sets:
+                formatted_date = set.date.strftime("%d")  # Форматирование даты
+                month_name = morph.parse(set.date.strftime("%B"))[0].inflect({'gent'}).word    #Склонение месяца
+                response += f"| Сет {set.set} | {set.weight}кг | {set.reps} повторений | {formatted_date} {month_name}\n"
+            await bot.send_message(message.chat.id, response, reply_markup=keyboard)
     else:
         await bot.send_message(message.chat.id, f"Упражнение {selected_exercise_name} не найдено.")
-
 
