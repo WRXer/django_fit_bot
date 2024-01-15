@@ -123,18 +123,16 @@ async def process_set_name(message):
     del user_states[message.chat.id]
     await bot.send_message(message.chat.id, f"Cет '{set.set}' создан успешно!")    #Отправляем пользователю подтверждение
     user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)    #Выводим список упражнений
+    inline_keyboard = types.InlineKeyboardMarkup(row_width=1)
+    for set in user_sets:
+        inline_keyboard.add(types.InlineKeyboardButton(text=f"Сет {set.set} - {set.weight}кг {set.reps} повторений",
+                                                       callback_data=f"set_{set.set}"))
+    button_create_set = types.KeyboardButton("Новый сет")
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    if not user_sets:
-        button_create_set = types.KeyboardButton("Новый сет")
-        keyboard.add(button_create_set)
-        await bot.send_message(message.chat.id, "У вас пока нет сетов в упражнении", reply_markup=keyboard)
-    else:
-        button_create_set = types.KeyboardButton("Новый сет")
-        keyboard.add(button_create_set)
-        for set in user_sets:
-            keyboard.add(types.KeyboardButton(text=f"Сет {set.set} - {set.weight}кг {set.reps} повторений"))
-        await bot.send_message(message.chat.id, "Выберите сет", reply_markup=keyboard)
-        user_states[message.chat.id] = "waiting_for_set"
+    keyboard.add(button_create_set)
+    await bot.send_message(message.chat.id, "\U0001F4AA", reply_markup=keyboard)
+    await bot.send_message(message.chat.id, "Ваши сеты:", reply_markup=inline_keyboard)
+    user_states[message.chat.id] = "waiting_for_set"
 
 
 @bot.message_handler(func=lambda message: message.text == "Мои тренировки")
@@ -201,18 +199,20 @@ async def process_exercise_choice(message):
     if selected_exercise:
         user_data[message.chat.id] = selected_exercise
         user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         if not user_sets:
             button_create_set = types.KeyboardButton("Новый сет")
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
             keyboard.add(button_create_set)
             await bot.send_message(message.chat.id, "У вас пока нет сетов в упражнении", reply_markup=keyboard)
         else:
-            button_create_set = types.KeyboardButton("Новый сет")
-            keyboard.add(button_create_set)
+            inline_keyboard = types.InlineKeyboardMarkup(row_width=1)
             for set in user_sets:
-                keyboard.add(types.KeyboardButton(text=f"Сет {set.set} - {set.weight}кг {set.reps} повторений"))
-            await bot.send_message(message.chat.id, "Выберите сет", reply_markup=keyboard)
-            #user_states[message.chat.id] = "waiting_for_exercise_set"
+                inline_keyboard.add(types.InlineKeyboardButton(text=f"Сет {set.set} - {set.weight}кг {set.reps} повторений", callback_data=f"set_{set.set}"))
+            button_create_set = types.KeyboardButton("Новый сет")
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            keyboard.add(button_create_set)
+            await bot.send_message(message.chat.id, "\U0001F4AA", reply_markup=keyboard)
+            await bot.send_message(message.chat.id, "Ваши сеты:", reply_markup=inline_keyboard)
     else:
         await bot.send_message(message.chat.id, f"Упражнение {selected_exercise_name} не найдено.")
 
