@@ -1,4 +1,6 @@
 import locale
+from datetime import datetime
+
 import pymorphy2
 import telebot
 from telebot import types
@@ -16,6 +18,8 @@ telebot.logger.setLevel(settings.LOG_LEVEL)
 
 user_states = {}    #Словарь для хранения состояний пользователей
 user_data = {}
+user_back = {}
+
 
 @bot.message_handler(commands=['help', 'start'])
 async def send_welcome(message):
@@ -117,29 +121,31 @@ async def process_set_name(message):
     telegram_user = await get_or_create_user(user_id)
     values = (message.text).split()
     if len(values) != 3:
-        await bot.send_message(message.chat.id, f"Неверно отправлены данные сета!")   # Возвращаем None в случае неверного формата
+        await bot.send_message(message.chat.id, f"Неверно отправлены данные сета!")   #Возвращаем None в случае неверного формата
     else:
-        set = int(values[0])    #Первое значение - количество сетов
+        set_c = int(values[0])    #Первое значение - количество сетов
         weight = float(values[1].replace(',', '.'))    #Второе значение - вес. Заменяем запятую на точку для правильного преобразования в float
         reps = int(values[2])    #Третье значение - количество повторений
-
-    selected_exercise = user_data[message.chat.id]
-    set_data = {'set': set, 'weight': weight, 'reps': reps, 'exercise': selected_exercise}
-    set = await create_set(telegram_user, set_data)    # Создаем сет и записываем в базу данных
-    del user_states[message.chat.id]
-    await bot.send_message(message.chat.id, f"Cет '{set.set}' создан успешно!")    #Отправляем пользователю подтверждение
-    user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)    #Выводим список упражнений
-    user_sets = sorted(user_sets, key=lambda x: x.date, reverse=True)[:7]  # Сортировка по дате и выбор последних 7
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    button_create_set = types.KeyboardButton("Новый сет")
-    keyboard.add(button_create_set)
-    response = "Ваши сеты \U0001F4AA:\n"
-    for set in user_sets:
-        formatted_date = set.date.strftime("%d")  # Форматирование даты
-        month_name = morph.parse(set.date.strftime("%B"))[0].inflect({'gent'}).word  # Склонение месяца
-        response += f"| Сет {set.set} | {set.weight}кг | {set.reps} повторений | {formatted_date} {month_name}\n"
-    await bot.send_message(message.chat.id, response, reply_markup=keyboard)
-
+        selected_exercise = user_data[message.chat.id]
+        set_data = {'set': set_c, 'weight': weight, 'reps': reps, 'exercise': selected_exercise}
+        created_set = await create_set(telegram_user, set_data)    #Создаем сет и записываем в базу данных
+        del user_states[message.chat.id]
+        await bot.send_message(message.chat.id, f"Cет {created_set.set} | {created_set.weight} кг | {created_set.reps} повторений добавлен!")    #Отправляем пользователю подтверждение
+        user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)    #Выводим список упражнений
+        user_sets = sorted(user_sets, key=lambda x: x.date, reverse=True)    #Получаем даты сетов
+        unique_dates = []
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        for one_set in user_sets:
+            formatted_date = one_set.date.strftime("%d")    #Форматирование даты
+            month_name = morph.parse(one_set.date.strftime(" %B"))[0].inflect({'gent'}).word    #Склонение месяца
+            day_month_key = one_set.date.strftime("%d%m")
+            if day_month_key not in unique_dates:    #Проверяем, есть ли уже дата в списке
+                unique_dates.append(day_month_key)
+                button = types.KeyboardButton(formatted_date + month_name)
+                keyboard.add(button)
+        button_create_set = types.KeyboardButton("Новый сет")
+        keyboard.add(button_create_set)
+        await bot.send_message(message.chat.id, "Выберите дату выполнения сета", reply_markup=keyboard)
     user_states[message.chat.id] = "waiting_for_set"
 
 
@@ -171,7 +177,6 @@ async def process_workout_choice(message):
     user_id = message.from_user.id
     telegram_user = await get_or_create_user(user_id)
     selected_workout_name = message.text
-    selected_workout_data = {'name': selected_workout_name, }
     selected_workout = await get_user_workout(telegram_user, name=selected_workout_name)
     del user_states[message.chat.id]
     if selected_workout:
@@ -201,28 +206,53 @@ async def process_exercise_choice(message):
     user_id = message.from_user.id
     telegram_user = await get_or_create_user(user_id)
     selected_exercise_name = message.text
-    selected_exercise_data = {'name': selected_exercise_name, }
     selected_exercise = await get_user_exercise(telegram_user, name=selected_exercise_name)
     del user_states[message.chat.id]
     if selected_exercise:
         user_data[message.chat.id] = selected_exercise
         user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)
-        user_sets = sorted(user_sets, key=lambda x: x.date, reverse=True)[:7]    #Сортировка по дате и выбор последних 7
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        user_sets = sorted(user_sets, key=lambda x: x.date, reverse=True)
         if not user_sets:
             button_create_set = types.KeyboardButton("Новый сет")
             keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
             keyboard.add(button_create_set)
             await bot.send_message(message.chat.id, "У вас пока нет сетов в упражнении", reply_markup=keyboard)
         else:
+            unique_dates = []
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            for one_set in user_sets:
+                formatted_date = one_set.date.strftime("%d")    #Форматирование даты
+                month_name = morph.parse(one_set.date.strftime(" %B"))[0].inflect({'gent'}).word    #Склонение месяца
+                day_month_key = one_set.date.strftime("%d%m")
+                if day_month_key not in unique_dates:    #Проверяем, есть ли уже дата в множестве
+                    unique_dates.append(day_month_key)
+                    button = types.KeyboardButton(formatted_date + month_name)
+                    keyboard.add(button)
             button_create_set = types.KeyboardButton("Новый сет")
             keyboard.add(button_create_set)
-            response = "Ваши сеты \U0001F4AA:\n"
-            for set in user_sets:
-                formatted_date = set.date.strftime("%d")  # Форматирование даты
-                month_name = morph.parse(set.date.strftime("%B"))[0].inflect({'gent'}).word    #Склонение месяца
-                response += f"| Сет {set.set} | {set.weight}кг | {set.reps} повторений | {formatted_date} {month_name}\n"
-            await bot.send_message(message.chat.id, response, reply_markup=keyboard)
+            await bot.send_message(message.chat.id, "Выберите дату выполнения сета", reply_markup=keyboard)
+            user_states[message.chat.id] = "waiting_for_set_choice"
     else:
         await bot.send_message(message.chat.id, f"Упражнение {selected_exercise_name} не найдено.")
+
+
+@bot.message_handler(func=lambda message: user_states.get(message.chat.id) == "waiting_for_set_choice")
+async def process_set_date(message):
+    """
+    Обработка данных выбранного сета
+    """
+    user_id = message.from_user.id
+    telegram_user = await get_or_create_user(user_id)
+    selected_exercise = user_data[message.chat.id]
+    selected_date_str = message.text
+    response_text = f"Сеты от {selected_date_str}:\n"
+    user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)
+    for one_set in user_sets:
+        formatted_date = one_set.date.strftime("%d")    #Форматирование даты
+        month_name = morph.parse(one_set.date.strftime(" %B"))[0].inflect({'gent'}).word    #Склонение месяца
+        format_set_date = formatted_date + month_name
+        if selected_date_str == format_set_date:
+            response_text += f"Сет {one_set.set} | {one_set.weight}кг | {one_set.reps} повторений |\n"
+    await bot.send_message(message.chat.id, response_text)
+
 
