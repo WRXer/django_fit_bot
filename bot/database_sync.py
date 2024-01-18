@@ -34,6 +34,16 @@ def create_workout(user_id, workout_data):
 
 
 @database_sync_to_async
+def create_workout_filter(telegram_user, workout_data):
+    # Извлекаем название тренировки из переданных данных
+    workout_name = workout_data.get('name')
+
+    # Проверяем, существует ли уже тренировка с таким же названием для данного пользователя
+    return Workout.objects.filter(user=telegram_user, name=workout_name).first()
+
+
+
+@database_sync_to_async
 def get_user_workout(user_id, name):
     """
     Получение тренировки пользователя по названию
