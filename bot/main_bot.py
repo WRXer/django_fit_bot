@@ -6,7 +6,7 @@ from telebot.async_telebot import AsyncTeleBot
 from django.conf import settings
 from bot.database_sync import get_or_create_user, create_workout, get_user_workouts, get_user_workout, \
     get_user_workout_exercises, create_exercise, get_user_exercise, get_user_exercise_sets, create_set, \
-    create_workout_filter
+    create_workout_filter, create_exercise_filter
 
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')    #Установка локали на русский язык
 morph = pymorphy2.MorphAnalyzer()
@@ -106,20 +106,28 @@ async def process_workout_name(message):
     user_id = message.from_user.id
     telegram_user = await get_or_create_user(user_id)
     exercise_name = message.text
-    selected_workout = user_data[message.chat.id]
+    selected_workout = user_data[message.chat.id]['workout']
     exercise_data = {'name': exercise_name, 'workout': selected_workout}
-    exercise = await create_exercise(telegram_user, exercise_data)    # Создаем упражнение и записываем в базу данных
-    del user_states[message.chat.id]
-    await bot.send_message(message.chat.id, f"Упражнение '{exercise.name}' создано успешно!")    #Отправляем пользователю подтверждение
+    user_exercises = await create_exercise_filter(telegram_user, exercise_data)
+    if not user_exercises:
+        exercise = await create_exercise(telegram_user, exercise_data)    # Создаем упражнение и записываем в базу данных
+        del user_states[message.chat.id]
+        await bot.send_message(message.chat.id, f"Упражнение '{exercise.name}' создано успешно!")    #Отправляем пользователю подтверждение
+    else:
+        await bot.send_message(message.chat.id, f"Упражнение '{exercise_name}' не создано! Данное название уже используется!")
     user_exercises = await get_user_workout_exercises(telegram_user, selected_workout)    #Выводим список упражнений
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     if not user_exercises:
         button_create_exercise = types.KeyboardButton("Создать упражнение")
-        keyboard.add(button_create_exercise)
+        button_back = types.KeyboardButton("Назад")
+        user_back[message.chat.id] = "exercise_menu"
+        keyboard.add(button_create_exercise, button_back)
         await bot.send_message(message.chat.id, "У вас пока нет упражнений", reply_markup=keyboard)
     else:
         button_create_exercise = types.KeyboardButton("Создать упражнение")
-        keyboard.add(button_create_exercise)
+        button_back = types.KeyboardButton("Назад")
+        user_back[message.chat.id] = "exercise_menu"
+        keyboard.add(button_create_exercise, button_back)
         for exercise in user_exercises:
             keyboard.add(types.KeyboardButton(text=exercise.name))
         await bot.send_message(message.chat.id, "Выберите упражнение", reply_markup=keyboard)
@@ -209,14 +217,14 @@ async def process_workout_choice(message):
             button_create_exercise = types.KeyboardButton("Создать упражнение")
             button_back = types.KeyboardButton("Назад")
             user_back[message.chat.id] = "workout_menu"
-            user_data[message.chat.id] = selected_workout_name
+            user_data[message.chat.id] = {'workout': selected_workout, 'exercise': None}
             keyboard.add(button_create_exercise, button_back)
             await bot.send_message(message.chat.id, "У вас пока нет упражнений", reply_markup=keyboard)
         else:
             button_create_exercise = types.KeyboardButton("Создать упражнение")
             button_back = types.KeyboardButton("Назад")
             user_back[message.chat.id] = "workout_menu"
-            user_data[message.chat.id] = selected_workout_name
+            user_data[message.chat.id] = {'workout': selected_workout, 'exercise': None}
             keyboard.add(button_create_exercise, button_back)
             for exercise in user_exercises:
                 keyboard.add(types.KeyboardButton(text=exercise.name))
@@ -234,7 +242,7 @@ async def process_exercise_choice(message):
     user_id = message.from_user.id
     telegram_user = await get_or_create_user(user_id)
     selected_exercise_name = message.text
-    selected_exercise = await get_user_exercise(telegram_user, name=selected_exercise_name)
+    selected_exercise = await get_user_exercise(telegram_user, name=selected_exercise_name, workout=user_data[message.chat.id]['workout'])
     if selected_exercise:
         user_data[message.chat.id] = selected_exercise
         user_sets = await get_user_exercise_sets(telegram_user, selected_exercise)

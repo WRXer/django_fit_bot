@@ -35,10 +35,13 @@ def create_workout(user_id, workout_data):
 
 @database_sync_to_async
 def create_workout_filter(telegram_user, workout_data):
-    # Извлекаем название тренировки из переданных данных
-    workout_name = workout_data.get('name')
-
-    # Проверяем, существует ли уже тренировка с таким же названием для данного пользователя
+    """
+    Проверяем, существует ли уже тренировка с таким же названием для данного пользователя
+    :param telegram_user:
+    :param workout_data:
+    :return:
+    """
+    workout_name = workout_data.get('name')    #Извлекаем название тренировки из переданных данных
     return Workout.objects.filter(user=telegram_user, name=workout_name).first()
 
 
@@ -51,6 +54,7 @@ def get_user_workout(user_id, name):
     :return:
     """
     return Workout.objects.get(user=user_id, name=name)
+
 
 @database_sync_to_async
 def get_user_workout_exercises(user_id, workout):
@@ -74,13 +78,25 @@ def create_exercise(user_id, exersize_data):
 
 
 @database_sync_to_async
-def get_user_exercise(user_id, name):
+def create_exercise_filter(telegram_user, exercise_data):
+    """Проверяем, существует ли уже упражнение с таким же названием для данного пользователя
+    :param telegram_user:
+    :param exercise_data:
+    :return:
+    """
+    exercise_name = exercise_data.get('name')    #Извлекаем название упражнения из переданных данных
+    exercise_workout = exercise_data.get('workout')
+    return Exercise.objects.filter(user=telegram_user, name=exercise_name, workout=exercise_workout).first()
+
+
+@database_sync_to_async
+def get_user_exercise(user_id, name, workout):
     """
     Получение тренировки пользователя по названию
     :param user_id:
     :return:
     """
-    return Exercise.objects.get(user=user_id, name=name)
+    return Exercise.objects.get(user=user_id, name=name, workout=workout)
 
 
 @database_sync_to_async
